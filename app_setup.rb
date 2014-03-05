@@ -32,13 +32,10 @@ def install_app
 end
 
 def command_for(app_module)
-  @start_cmds ||= CONFIG.fetch('cmds') { {} }.fetch('start') { {} }
-  @start_cmds.fetch(app_module)
+  startup_modules.fetch(app_module)
 end
 
 def start_app_module(app_module='app')
-  @start_cmds ||= CONFIG['start_cmds']
-
   exec("rvm #{ruby_version} do #{command_for(app_module)}")
 end
 
@@ -56,7 +53,7 @@ EOF
 end
 
 def startup_modules
-  CONFIG.fetch('start_cmds') { [] }
+  @start_modules ||= CONFIG.fetch('cmds') { {} }.fetch('start') { [] }
 end
 
 def start_multi(*mods)
