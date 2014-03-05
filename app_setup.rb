@@ -2,6 +2,7 @@
 require 'yaml'
 require 'erb'
 require 'fileutils'
+require 'digest/sha1'
 
 config_file = '.build.yml'
 if File.exists?(config_file)
@@ -20,18 +21,18 @@ def install_packages
   %x[apt-get update -qq && apt-get install -y -qq #{packages}]
 end
 
-def install_gems
-  %x[rvm #{ruby_version} do bundle install]
+def run_install_cmds
+  install_cmds.each {|cmd| system("rvm #{ruby_version} do #{cmd}") }
 end
 
 def install_app
   install_packages
   install_ruby
-  install_gems
+  run_install_cmds
 end
 
 def command_for(app_module)
-  @start_cmds ||= CONFIG['start_cmds']
+  @start_cmds ||= CONFIG.fetch('cmds') { {} }.fetch('start') { {} }
   @start_cmds.fetch(app_module)
 end
 
@@ -54,11 +55,15 @@ EOF
   FileUtils.chmod('+x', "sv/#{mod}/run")
 end
 
+def startup_modules
+  CONFIG.fetch('start_cmds') { [] }
+end
+
 def start_multi(*mods)
   if mods.any?
     mods.each { |m| build_runit_config(m) }
   else
-    CONFIG['start_cmds'].each {|mod, cmd| build_runit_config(mod) }
+    startup_modules.each {|mod, cmd| build_runit_config(mod) }
   end
   exec('/usr/bin/runsvdir ./sv')
 end
@@ -72,22 +77,46 @@ def start_app
 end
 
 def before_start
-  CONFIG['before_start_cmds'] || []
+  CONFIG.fetch('cmds'){ {'pre' => {}} }.fetch('pre'){ [] }
+end
+
+def install_cmds
+  CONFIG.fetch('cmds'){ {'install' => {}} }.fetch('install'){ [] }
 end
 
 def ruby_version
   CONFIG['ruby']
 end
 
+def once_cmds
+  CONFIG.fetch('cmds'){ {'once' => {} } }.fetch('once'){ [] }
+end
+
 def run_before_start
   before_start.each {|cmd| system(cmd)}
 end
 
+def run_once_cmds
+  once_cmds.each do |cmd|
+    cmd_hash = generate_hash(cmd)
+    unless File.exists?("tmp/run_conce_cmds/#{cmd_hash}")
+      system("rvm #{ruby_version} do #{cmd}")
+      if $?.success?
+        FileUtils.mkdir_p('tmp/run_once_cmds')
+        File.open("tmp/run_once_cmds/#{cmd_hash}", 'w+') {|f| f.write(cmd_hash) }
+      end
+    end
+  end
+end
+
+def generate_hash(payload)
+  Digest::SHA1.hexdigest(payload)
+end
+
 if ARGV[0] == 'install'
-  install_packages
-  install_ruby
-  install_gems
+  install_app
 else
-  run_before_start if before_start.any?
+  run_once_cmds
+  run_before_start
   start_app
 end
