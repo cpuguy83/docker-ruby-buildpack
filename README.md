@@ -12,12 +12,17 @@ This will look for a file called ".build.yml" in the root of your project and us
 ruby: ruby-2.1.1
 pkg:
   - libmysqlclient-dev
-start_cmds:
-  app: bundle exec puma
-  worker: bundle exec sidekiq
-  clock: bundle exec clockwork config/clockwork
-before_start_cmds:
-  - bundle exec rake assets:precompile
+cmds:
+  pre:
+    - # ?? Something to run every time before start
+  install:
+    - bundle install
+  start:
+    app: bundle exec puma
+    worker: bundle exec sidekiq
+    clock: bundle exec clockwork config/clockwork
+  once:
+    - bundle exec rake assets:precompile
 ```
 
 ### Usage
