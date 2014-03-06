@@ -36,7 +36,7 @@ def command_for(app_module)
 end
 
 def start_app_module(app_module='app')
-  exec("exec rvm #{ruby_version} do #{command_for(app_module)}")
+  exec("rvm #{ruby_version} do #{command_for(app_module)}")
 end
 
 def build_startup_config(mod, cmd)
@@ -131,7 +131,7 @@ def generate_hash(payload)
 end
 
 def run_custom_cmd(cmd)
-  exec("exec rvm #{ruby_version} do #{cmd}")
+  exec("rvm #{ruby_version} do #{cmd}")
 end
 
 case
