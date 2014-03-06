@@ -32,15 +32,14 @@ def install_app
 end
 
 def command_for(app_module)
-  startup_modules.fetch(app_module)
+  startup_modules.fetch(app_module) { false }
 end
 
 def start_app_module(app_module='app')
-  exec("rvm #{ruby_version} do #{command_for(app_module)}")
+  exec("exec rvm #{ruby_version} do #{command_for(app_module)}")
 end
 
-def build_runit_config(mod)
-  cmd = command_for(mod)
+def build_startup_config(mod, cmd)
   conf = <<-EOF
 #!/bin/bash
 cd #{Dir.pwd}
@@ -52,15 +51,28 @@ EOF
   FileUtils.chmod('+x', "sv/#{mod}/run")
 end
 
+def build_stop_config(mod, cmd)
+  conf = <<-EOF
+#!/bin/bash
+cd #{Dir.pwd}
+exec rvm #{ruby_version} do #{cmd}
+EOF
+
+  FileUtils.mkdir_p("sv/#{mod}")
+  File.open("sv/#{mod}/finish", "w+") { |f| f.write(conf) }
+  FileUtis.chmod('+x', "sv/#{mod}/finish")
+end
+
 def startup_modules
-  @start_modules ||= CONFIG.fetch('cmds') { {} }.fetch('start') { [] }
+  @start_modules ||= cmds.fetch('start') { {} }
 end
 
 def start_multi(*mods)
   if mods.any?
     mods.each { |m| build_runit_config(m) }
   else
-    startup_modules.each {|mod, cmd| build_runit_config(mod) }
+    startup_modules.each {|mod, cmd| build_startup_config(mod, cmd) }
+    stop_cmds.each {|mod, cmd| build_stop_config(mod, cmd) }
   end
   exec('/usr/bin/runsvdir ./sv')
 end
@@ -74,19 +86,19 @@ def start_app
 end
 
 def before_start
-  CONFIG.fetch('cmds'){ {'pre' => {}} }.fetch('pre'){ [] }
+  cmds.fetch('pre'){ [] }
 end
 
 def install_cmds
-  CONFIG.fetch('cmds'){ {'install' => {}} }.fetch('install'){ [] }
+  cmds.fetch('install'){ [] }
 end
 
 def ruby_version
-  CONFIG['ruby']
+  CONFIG.fetch('ruby') { 'ruby' }
 end
 
 def once_cmds
-  CONFIG.fetch('cmds'){ {'once' => {} } }.fetch('once'){ [] }
+  cmds.fetch('once'){ [] }
 end
 
 def run_before_start
@@ -106,12 +118,25 @@ def run_once_cmds
   end
 end
 
+def cmds
+  CONFIG.fetch('cmds') { {} }
+end
+
+def stop_cmds
+  cmds.fetch('stop') { {} }
+end
+
 def generate_hash(payload)
   Digest::SHA1.hexdigest(payload)
 end
 
-if ARGV[0] == 'install'
-  install_app
+def run_custom_cmd(cmd)
+  exec("exec rvm #{ruby_version} do #{cmd}")
+end
+
+case
+  when ARGV[0] == 'install' then install_app
+  when !command_for(ARGV[0]) then run_custom_cmd(ARGV.join(' '))
 else
   run_once_cmds
   run_before_start
