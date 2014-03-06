@@ -69,7 +69,7 @@ end
 
 def start_multi(*mods)
   if mods.any?
-    mods.each { |m| build_runit_config(m) }
+    mods.each { |m| build_startup_config(m, command_for(m)) }
   else
     startup_modules.each {|mod, cmd| build_startup_config(mod, cmd) }
     stop_cmds.each {|mod, cmd| build_stop_config(mod, cmd) }
@@ -136,7 +136,7 @@ end
 
 case
   when ARGV[0] == 'install' then install_app
-  when !command_for(ARGV[0]) then run_custom_cmd(ARGV.join(' '))
+  when ARGV[0] && !command_for(ARGV[0]) then run_custom_cmd(ARGV.join(' '))
 else
   run_once_cmds
   run_before_start
