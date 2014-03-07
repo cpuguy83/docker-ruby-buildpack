@@ -14,7 +14,8 @@ RUN /bin/bash -l -c rvm requirements
 RUN source /usr/local/rvm/scripts/rvm && rvm install ruby
 RUN rvm all do gem install bundler
 ADD app_setup.rb /tmp/app_setup.rb
+ADD app_start.sh /tmp/app_start.sh
 ONBUILD ADD . /opt/app
 ONBUILD WORKDIR /opt/app
 ONBUILD RUN rvm all do /tmp/app_setup.rb install
-ONBUILD ENTRYPOINT ["rvm", "all", "do", "/tmp/app_setup.rb"]
+ONBUILD ENTRYPOINT ["/tmp/app_start.sh"]
