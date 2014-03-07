@@ -11,7 +11,6 @@ if File.exists?(config_file)
   CONFIG = YAML.load( ERB.new( File.read(config_file) ).result )
 else
   CONFIG = {}
-  puts "No #{config_file} provided, skipping"
 end
 
 def install_ruby
@@ -42,12 +41,13 @@ def command_for(app_module)
 end
 
 def start_app_module(app_module='app')
-  exec("source /usr/local/rvm/scripts/rvm; rvm use #{ruby_version}; exec #{command_for(app_module)}")
+  exec("#!/bin/bash\n . /usr/local/rvm/scripts/rvm;\nrvm use #{ruby_version};\nexec #{command_for(app_module)}")
 end
 
 def build_startup_config(mod, cmd)
   conf = <<-EOF
 #!/bin/bash
+. /usr/local/rvm/scripts/rvm
 cd #{Dir.pwd}
 rvm use #{ruby_version}
 exec #{cmd}
@@ -62,7 +62,7 @@ def build_stop_config(mod, cmd)
   conf = <<-EOF
 #!/bin/bash
 cd #{Dir.pwd}
-exec rvm #{ruby_version} do #{cmd}
+rvm #{ruby_version} do #{cmd}
 EOF
 
   FileUtils.mkdir_p("sv/#{mod}")
@@ -138,7 +138,7 @@ def generate_hash(payload)
 end
 
 def run_custom_cmd(cmd)
-  exec("source /usr/local/rvm/scripts/rvm; rvm use #{ruby_version}; exec #{cmd}")
+  exec("#!/bin/bash\n . /usr/local/rvm/scripts/rvm;\nrvm use #{ruby_version};\nexec #{cmd}")
 end
 
 case
